@@ -1,0 +1,19 @@
+# Ignore virtual environment
+venv/
+
+# Python stuff
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.log
+
+# Environment variables
+.env
+
+# VS Code settings (optional)
+.vscode/
+
+# Django migrations (optional to ignore pyc files)
+**/migrations/*.pyc
