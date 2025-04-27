@@ -34,8 +34,8 @@ class Product(models.Model):
     )
     image = models.ImageField(upload_to='images/')
     rating = models.FloatField(default=0.0)
-    code = models.CharField(max_length=50)
-    slug = models.SlugField(max_length=255, null=True, blank=True, unique=True)  # Allow null temporarily
+    code = models.CharField(max_length=50, null=True, blank=True)
+    slug = models.SlugField(max_length=255, unique=True, null=True, blank=True)
     sold_count = models.IntegerField(default=0)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     color = models.JSONField(default=list)
@@ -51,20 +51,32 @@ class Product(models.Model):
     objects = ProductManager()
 
     def __str__(self):
-        return f"{self.name} ({self.code})"
+        return f"{self.name} ({self.code or 'No Code'})"
+
+    def generate_unique_slug(self):
+        base_slug = slugify(self.name)
+        slug = f"{base_slug}-{self.code.lower() if self.code else self.id or 'temp'}"
+        original_slug = slug
+        counter = 1
+        while Product.objects.filter(slug=slug).exclude(id=self.id).exists():
+            slug = f"{original_slug}-{counter}"
+            counter += 1
+        return slug
 
     def save(self, *args, **kwargs):
+        if not self.code:
+            # Set temporary code if not set; updated after ID is assigned
+            self.code = f"PROD-{self.id or 'temp'}"
         if not self.slug:
-            base_slug = slugify(self.name)
-            self.slug = f"{base_slug}-{self.code.lower()}"
-            original_slug = self.slug
-            counter = 1
-            while Product.objects.filter(slug=self.slug).exclude(id=self.id).exists():
-                self.slug = f"{original_slug}-{counter}"
-                counter += 1
+            self.slug = self.generate_unique_slug()
         if self.stock < 0:
             raise ValueError("Stock cannot be negative")
         super().save(*args, **kwargs)
+        # Update code and slug after ID is assigned if using temp values
+        if 'temp' in (self.code or '') or 'temp' in (self.slug or ''):
+            self.code = f"PROD-{self.id}"
+            self.slug = self.generate_unique_slug()
+            super().save(update_fields=['code', 'slug'])
 
     @property
     def is_new_arrival(self):
@@ -81,7 +93,11 @@ class Product(models.Model):
             models.Index(fields=['slug']),
         ]
         constraints = [
-            models.UniqueConstraint(fields=['vendor', 'code'], name='unique_vendor_code'),
+            models.UniqueConstraint(
+                fields=['vendor', 'code'],
+                name='unique_vendor_code',
+                condition=models.Q(code__isnull=False)
+            ),
         ]
 
 class Promotion(models.Model):

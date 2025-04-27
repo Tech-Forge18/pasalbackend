@@ -1,15 +1,17 @@
-# products/views.py (unchanged, for reference)
+# products/views.py
+import logging
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Sum
 from django.core.cache import cache
-from django.views.decorators.cache import cache_page
 from .models import Product, Promotion
 from .serializers import ProductSerializer, PromotionSerializer, ProductPagination
 from orders.models import OrderItem
 from orders.serializers import OrderItemSerializer
 from account.permissions import IsApprovedVendor
+
+logger = logging.getLogger('gurkha_pasal')
 
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.select_related('category', 'vendor')
@@ -25,19 +27,30 @@ class ProductViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return super().get_queryset().select_related('category', 'vendor')
 
-    @cache_page(60 * 15)
     def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
+        cache_key = "product_list"
+        cached_products = cache.get(cache_key)
+        if not cached_products:
+            products = self.get_queryset()
+            serializer = self.get_serializer(products, many=True)
+            cached_products = serializer.data
+            cache.set(cache_key, cached_products, 60 * 15)
+            logger.info("Product list cached")
+        return Response(cached_products)
 
     def perform_create(self, serializer):
         serializer.save(vendor=self.request.user)
         cache.delete(f"product_{serializer.instance.id}")
         cache.delete(f"products_list_{self.request.user.id}")
+        cache.delete("product_list")
+        logger.info(f"Product {serializer.instance.name} created by {self.request.user.username}")
 
     def perform_update(self, serializer):
         serializer.save()
         cache.delete(f"product_{serializer.instance.id}")
         cache.delete(f"products_list_{self.request.user.id}")
+        cache.delete("product_list")
+        logger.info(f"Product {serializer.instance.name} updated by {self.request.user.username}")
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def low_stock(self, request):
@@ -53,6 +66,7 @@ class ProductViewSet(viewsets.ModelViewSet):
             serializer = ProductSerializer(low_stock_products, many=True)
             low_stock_products = serializer.data
             cache.set(cache_key, low_stock_products, 60 * 15)
+            logger.info(f"Low stock products cached for vendor {request.user.username}")
         return Response(low_stock_products)
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
@@ -71,41 +85,52 @@ class ProductViewSet(viewsets.ModelViewSet):
                 'top_products': ProductSerializer(products.order_by('-sold_count')[:5], many=True).data
             }
             cache.set(cache_key, stats, 60 * 15)
+            logger.info(f"Vendor dashboard cached for {request.user.username}")
         return Response(stats)
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
-    @cache_page(60 * 15)
     def vendor_orders(self, request):
-        if request.user.role != 'vendor':
-            return Response({"detail": "Only vendors can access this"}, status=403)
-        order_items = OrderItem.objects.filter(product__vendor=request.user).select_related('order', 'product')
-        serializer = OrderItemSerializer(order_items, many=True)
-        return Response(serializer.data)
+        cache_key = f"vendor_orders_{request.user.id}"
+        cached_orders = cache.get(cache_key)
+        if not cached_orders:
+            if request.user.role != 'vendor':
+                return Response({"detail": "Only vendors can access this"}, status=403)
+            order_items = OrderItem.objects.filter(product__vendor=request.user).select_related('order', 'product')
+            serializer = OrderItemSerializer(order_items, many=True)
+            cached_orders = serializer.data
+            cache.set(cache_key, cached_orders, 60 * 15)
+            logger.info(f"Vendor orders cached for {request.user.username}")
+        return Response(cached_orders)
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
-    @cache_page(60 * 30)
     def recommendations(self, request):
-        user = request.user
-        wishlist_items = user.wishlist.all() if hasattr(user, 'wishlist') else []
-        wishlist_categories = wishlist_items.values_list('category', flat=True).distinct()
-        order_items = OrderItem.objects.filter(order__user=user)
-        order_categories = order_items.values_list('product__category', flat=True).distinct()
-        relevant_categories = list(wishlist_categories) + list(order_categories.difference(wishlist_categories))
+        cache_key = f"recommendations_{request.user.id}"
+        cached_recommendations = cache.get(cache_key)
+        if not cached_recommendations:
+            user = request.user
+            wishlist_items = user.wishlist.all() if hasattr(user, 'wishlist') else []
+            wishlist_categories = wishlist_items.values_list('category', flat=True).distinct()
+            order_items = OrderItem.objects.filter(order__user=user)
+            order_categories = order_items.values_list('product__category', flat=True).distinct()
+            relevant_categories = list(wishlist_categories) + list(order_categories.difference(wishlist_categories))
 
-        if relevant_categories:
-            recommended = Product.objects.filter(
-                category__in=relevant_categories,
-                stock__gt=0
-            ).exclude(
-                id__in=wishlist_items.values_list('id', flat=True)
-            ).select_related('category', 'vendor').order_by('-sold_count')[:5]
-        else:
-            recommended = Product.objects.filter(
-                stock__gt=0, is_trending=True
-            ).select_related('category', 'vendor').order_by('-sold_count')[:5]
+            if relevant_categories:
+                recommended = Product.objects.filter(
+                    category__in=relevant_categories,
+                    stock__gt=0
+                ).exclude(
+                    id__in=wishlist_items.values_list('id', flat=True)
+                ).select_related('category', 'vendor').order_by('-sold_count')[:5]
+            else:
+                recommended = Product.objects.filter(
+                    stock__gt=0, is_trending=True
+                ).select_related('category', 'vendor').order_by('-sold_count')[:5]
 
-        serializer = ProductSerializer(recommended, many=True)
-        return Response(serializer.data)
+            serializer = ProductSerializer(recommended, many=True)
+            cached_recommendations = serializer.data
+            cache.set(cache_key, cached_recommendations, 60 * 30)
+            logger.info(f"Recommendations cached for {request.user.username}")
+        return Response(cached_recommendations)
 
 class PromotionViewSet(viewsets.ModelViewSet):
     serializer_class = PromotionSerializer
