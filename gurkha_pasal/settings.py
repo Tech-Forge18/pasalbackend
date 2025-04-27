@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'products',
     'account',
     'profiles',
@@ -48,7 +49,7 @@ INSTALLED_APPS = [
     'reviews',
     'sliders',
     'chat',
-    'channels',  # Already here for chat
+    'channels',  
 ]
 
 MIDDLEWARE = [
@@ -128,6 +129,10 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         # 'rest_framework.permissions.IsAuthenticated',  # Optional
     ],
+    'DEFAULT_THROTTLE_RATES': {
+        'user': '10/min',  # This defines the throttle rate for all users globally
+        'anon': '5/min',   # This defines the throttle rate for anonymous users
+    },
 }
 
 # JWT Settings (optional customization)

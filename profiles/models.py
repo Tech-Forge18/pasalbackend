@@ -11,6 +11,9 @@ class Profile(models.Model):
     phone_number = models.CharField(max_length=15, blank=True, null=True, validators=[phone_validator])
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
     wishlist = models.ManyToManyField('products.Product', blank=True, related_name='wishlisted_by')
+    followed_stores = models.ManyToManyField('profiles.VendorProfile', blank=True, related_name='followers')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.user.username}'s Profile"
@@ -28,6 +31,8 @@ class VendorProfile(models.Model):
     postal_code = models.CharField(max_length=20)
     country = models.CharField(max_length=100, default="Nepal")
     contact_email = models.EmailField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.store_name} ({self.user.username})"

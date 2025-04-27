@@ -1,3 +1,4 @@
+# products/admin.py
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
@@ -5,16 +6,17 @@ from .models import Product, Category, Promotion
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'get_vendor', 'price', 'stock', 'is_exclusive_deal', 'is_trending', 'created_at', 'vendor_dashboard_link')
+    list_display = ('name', 'code', 'get_vendor', 'price', 'stock', 'is_exclusive_deal', 'is_trending', 'created_at', 'vendor_dashboard_link')
     list_filter = ('is_exclusive_deal', 'is_trending', 'category')
-    search_fields = ('name', 'description')
+    search_fields = ('name', 'description', 'code', 'slug')
     list_editable = ('is_exclusive_deal', 'is_trending')
     fields = (
         'name', 'description', 'price', 'original_price', 'discount', 'image',
         'category', 'color', 'sizes', 'is_exclusive_deal', 'deal_end_time',
-        'is_trending', 'vendor', 'stock', 'stock_threshold'
+        'is_trending', 'vendor', 'stock', 'stock_threshold', 'code', 'slug',
+        'rating', 'sold_count'
     )
-    readonly_fields = ('created_at', 'rating', 'sold_count')
+    readonly_fields = ('created_at', 'rating', 'sold_count', 'slug')
 
     def get_vendor(self, obj):
         return obj.vendor.username if obj.vendor else 'None'
@@ -30,9 +32,8 @@ class ProductAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         self.request = request
         qs = super().get_queryset(request)
-        # Feature 7: Restrict unapproved vendors
         if request.user.role == 'vendor' and not request.user.is_approved:
-            return qs.none()  # Unapproved vendors see nothing
+            return qs.none()
         elif request.user.role == 'vendor':
             return qs.filter(vendor=request.user)
         return qs
@@ -53,7 +54,6 @@ class ProductAdmin(admin.ModelAdmin):
         return form
 
     def has_change_permission(self, request, obj=None):
-        # Feature 7: Unapproved vendors can’t edit
         if request.user.role == 'vendor' and not request.user.is_approved:
             return False
         elif request.user.role == 'vendor':
@@ -61,7 +61,6 @@ class ProductAdmin(admin.ModelAdmin):
         return True
 
     def has_delete_permission(self, request, obj=None):
-        # Feature 7: Unapproved vendors can’t delete
         if request.user.role == 'vendor' and not request.user.is_approved:
             return False
         elif request.user.role == 'vendor':
@@ -79,7 +78,6 @@ class CategoryAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        # Feature 7: Restrict unapproved vendors
         if request.user.role == 'vendor' and not request.user.is_approved:
             return qs.none()
         elif request.user.role == 'vendor':
@@ -103,7 +101,6 @@ class PromotionAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        # Feature 7: Restrict unapproved vendors
         if request.user.role == 'vendor' and not request.user.is_approved:
             return qs.none()
         elif request.user.role == 'vendor':

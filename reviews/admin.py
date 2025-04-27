@@ -1,3 +1,4 @@
+# reviews/admin.py
 from django.contrib import admin
 from .models import Review, ReviewReply
 from django.utils.html import format_html
@@ -10,7 +11,7 @@ class ReviewReplyInline(admin.TabularInline):
 class ReviewAdmin(admin.ModelAdmin):
     list_display = ('user', 'product', 'rating', 'image_thumbnail', 'created_at')
     list_filter = ('rating', 'product', 'user')
-    search_fields = ('user__username', 'product__name', 'comment')
+    search_fields = ('user__username', 'product__name', 'product__code', 'product__slug', 'comment')
     inlines = [ReviewReplyInline]
 
     def image_thumbnail(self, obj):

@@ -3,11 +3,12 @@ from django.db import models
 from django.core.validators import MinValueValidator
 from account.models import User
 from products.models import Product
+from .constants import STATUS_CHOICES
 
 class ShippingAddress(models.Model):
     user = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE, 
+        User,
+        on_delete=models.CASCADE,
         related_name='shipping_addresses',
         limit_choices_to={'role': 'customer'}
     )
@@ -38,14 +39,6 @@ class ShippingAddress(models.Model):
         ]
 
 class Order(models.Model):
-    STATUS_CHOICES = (
-        ('pending', 'Pending'),
-        ('processing', 'Processing'),
-        ('shipped', 'Shipped'),
-        ('delivered', 'Delivered'),
-        ('cancelled', 'Cancelled'),
-    )
-
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
     shipping_address = models.ForeignKey(
         ShippingAddress,
@@ -56,7 +49,7 @@ class Order(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='to_pay')
 
     def __str__(self):
         return f"Order #{self.id} - {self.user.username} ({self.status})"
@@ -73,15 +66,13 @@ class Order(models.Model):
         ]
 
 class OrderItem(models.Model):
-    STATUS_CHOICES = Order.STATUS_CHOICES
-
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order_items')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     price_at_time = models.DecimalField(max_digits=10, decimal_places=2)
     selected_color = models.CharField(max_length=50, blank=True, null=True)
     selected_size = models.CharField(max_length=50, blank=True, null=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='to_pay')
 
     def save(self, *args, **kwargs):
         if not self.price_at_time and self.product:

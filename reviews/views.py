@@ -5,7 +5,10 @@ from rest_framework.decorators import action
 from .models import Review
 from .serializers import ReviewSerializer, ReviewReplySerializer
 from account.permissions import IsCustomer, IsApprovedVendor
-from utils.mail import send_mailersend_email  # Import the Celery task
+from utils.mail import send_mailersend_email
+import logging
+
+logger = logging.getLogger('gurkha_pasal')
 
 class CustomerReviewViewSet(viewsets.ModelViewSet):
     """ViewSet for customers to create and view their own reviews."""
@@ -21,15 +24,23 @@ class CustomerReviewViewSet(viewsets.ModelViewSet):
         vendor = review.product.vendor
         if vendor.email:
             subject = f"New Review on Your Product: {review.product.name}"
-            message = (
-                f"Dear {vendor.username},\n\n"
-                f"A customer ({self.request.user.username}) has reviewed your product '{review.product.name}'.\n"
-                f"Rating: {review.rating}/5\n"
-                f"Comment: {review.comment}\n\n"
-                f"Check it out in your vendor dashboard.\n\n"
-                f"Best regards,\nGurkha Pasal Team"
-            )
-            send_mailersend_email.delay(vendor.email, subject, message)
+            message = f"""
+Dear {vendor.username},
+
+You have received a new review on your product "{review.product.name}" (Code: {review.product.code}).
+
+Rating: {review.rating}/5
+Comment: {review.comment or 'No comment provided'}
+
+You can view and respond to the review in your vendor dashboard.
+
+Best regards,
+Gurkha Pasal Team
+"""
+            try:
+                send_mailersend_email.delay(vendor.email, subject, message)
+            except Exception as e:
+                logger.error(f"Failed to send review email to vendor {vendor.username}: {str(e)}")
 
 class VendorReviewViewSet(viewsets.ModelViewSet):
     """ViewSet for vendors to view and reply to reviews on their products."""
@@ -63,15 +74,23 @@ class VendorReviewViewSet(viewsets.ModelViewSet):
         customer = review.user
         if customer.email:
             subject = f"Vendor Reply to Your Review on {review.product.name}"
-            message = (
-                f"Dear {customer.username},\n\n"
-                f"The vendor ({request.user.username}) has replied to your review on '{review.product.name}'.\n"
-                f"Your Rating: {review.rating}/5\n"
-                f"Your Comment: {review.comment}\n"
-                f"Vendor Reply: {reply.comment}\n\n"
-                f"Thank you for shopping with us!\n\n"
-                f"Best regards,\nGurkha Pasal Team"
-            )
-            send_mailersend_email.delay(customer.email, subject, message)
+            message = f"""
+Dear {customer.username},
+
+The vendor ({request.user.username}) has replied to your review on "{review.product.name}" (Code: {review.product.code}).
+
+Your Rating: {review.rating}/5
+Your Comment: {review.comment or 'No comment provided'}
+Vendor Reply: {reply.comment}
+
+Thank you for shopping with us!
+
+Best regards,
+Gurkha Pasal Team
+"""
+            try:
+                send_mailersend_email.delay(customer.email, subject, message)
+            except Exception as e:
+                logger.error(f"Failed to send reply email to customer {customer.username}: {str(e)}")
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)

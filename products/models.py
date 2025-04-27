@@ -2,7 +2,9 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
+from django.utils.text import slugify
 from account.models import User
+from django.db.models import F
 
 class Category(models.Model):
     name = models.CharField(max_length=100)
@@ -32,6 +34,8 @@ class Product(models.Model):
     )
     image = models.ImageField(upload_to='images/')
     rating = models.FloatField(default=0.0)
+    code = models.CharField(max_length=50)
+    slug = models.SlugField(max_length=255, null=True, blank=True, unique=True)  # Allow null temporarily
     sold_count = models.IntegerField(default=0)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     color = models.JSONField(default=list)
@@ -47,7 +51,20 @@ class Product(models.Model):
     objects = ProductManager()
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.code})"
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.name)
+            self.slug = f"{base_slug}-{self.code.lower()}"
+            original_slug = self.slug
+            counter = 1
+            while Product.objects.filter(slug=self.slug).exclude(id=self.id).exists():
+                self.slug = f"{original_slug}-{counter}"
+                counter += 1
+        if self.stock < 0:
+            raise ValueError("Stock cannot be negative")
+        super().save(*args, **kwargs)
 
     @property
     def is_new_arrival(self):
@@ -57,16 +74,14 @@ class Product(models.Model):
     def is_low_stock(self):
         return self.stock <= self.stock_threshold
 
-    def save(self, *args, **kwargs):
-        if self.stock < 0:
-            raise ValueError("Stock cannot be negative")
-        super().save(*args, **kwargs)
-
     class Meta:
         indexes = [
             models.Index(fields=['vendor']),
             models.Index(fields=['category']),
-            models.Index(fields=['stock']),
+            models.Index(fields=['slug']),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=['vendor', 'code'], name='unique_vendor_code'),
         ]
 
 class Promotion(models.Model):

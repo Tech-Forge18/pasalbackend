@@ -2,8 +2,9 @@
 from rest_framework import serializers
 from rest_framework.pagination import PageNumberPagination
 from .models import Order, ShippingAddress, OrderItem
+from .constants import STATUS_CHOICES
 from products.models import Product
-from cart.models import CartItem
+from products.serializers import ProductSerializer
 
 class ShippingAddressSerializer(serializers.ModelSerializer):
     class Meta:
@@ -12,16 +13,25 @@ class ShippingAddressSerializer(serializers.ModelSerializer):
         read_only_fields = ['user']
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+    product = ProductSerializer(read_only=True)
+    product_id = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(), source='product', write_only=True
+    )
+    product_code = serializers.CharField(source='product.code', read_only=True)
+    product_slug = serializers.CharField(source='product.slug', read_only=True)
     selected_color = serializers.CharField(required=False, allow_blank=True)
     selected_size = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = OrderItem
-        fields = ['id', 'product', 'quantity', 'price_at_time', 'selected_color', 'selected_size', 'status']
+        fields = [
+            'id', 'product', 'product_id', 'product_code', 'product_slug', 'quantity',
+            'price_at_time', 'selected_color', 'selected_size', 'status'
+        ]
+        read_only_fields = ['price_at_time', 'product_code', 'product_slug']
 
     def validate(self, data):
-        product = data['product']
+        product = Product.objects.select_related('vendor').get(id=data['product'].id)
         quantity = data.get('quantity', 1)
         if quantity <= 0:
             raise serializers.ValidationError("Quantity must be positive")
@@ -29,6 +39,10 @@ class OrderItemSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(f"Not enough stock for {product.name}")
         selected_color = data.get('selected_color')
         selected_size = data.get('selected_size')
+        if product.color and not selected_color:
+            raise serializers.ValidationError("Please select a color")
+        if product.sizes and not selected_size:
+            raise serializers.ValidationError("Please select a size")
         if selected_color and selected_color not in product.color:
             raise serializers.ValidationError(f"Invalid color: {selected_color}")
         if selected_size and selected_size not in product.sizes:
@@ -36,19 +50,19 @@ class OrderItemSerializer(serializers.ModelSerializer):
         return data
 
 class OrderSerializer(serializers.ModelSerializer):
-    cart_items = OrderItemSerializer(many=True, source='order_items')
+    order_items = OrderItemSerializer(many=True)  # Renamed from cart_items
     shipping_address = serializers.PrimaryKeyRelatedField(
         queryset=ShippingAddress.objects.all(), allow_null=True
     )
 
     class Meta:
         model = Order
-        fields = ['id', 'user', 'shipping_address', 'total_amount', 'status', 'created_at', 'cart_items']
+        fields = ['id', 'user', 'shipping_address', 'total_amount', 'status', 'created_at', 'order_items']
         read_only_fields = ['user', 'total_amount', 'status', 'created_at']
 
     def validate(self, data):
-        cart_items = data.get('order_items', [])
-        if not cart_items:
+        order_items = data.get('order_items', [])
+        if not order_items:
             raise serializers.ValidationError("At least one item is required")
         shipping_address = data.get('shipping_address')
         if not shipping_address:
@@ -56,14 +70,14 @@ class OrderSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        cart_items_data = validated_data.pop('order_items')
+        order_items_data = validated_data.pop('order_items')
         order = Order.objects.create(
             user=self.context['request'].user,
             shipping_address=validated_data.get('shipping_address'),
             total_amount=0
         )
         total_amount = 0
-        for item_data in cart_items_data:
+        for item_data in order_items_data:
             product = item_data['product']
             quantity = item_data['quantity']
             total_amount += product.price * quantity
