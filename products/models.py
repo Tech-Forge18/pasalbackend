@@ -10,13 +10,20 @@ class Category(models.Model):
     name = models.CharField(max_length=100)
     image = models.ImageField(upload_to='category_images/', null=True, blank=True)
     vendor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='categories', null=True, blank=True)
+    parent_category = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='subcategories')
 
     def __str__(self):
+        if self.parent_category:
+            return f"{self.parent_category.name} > {self.name}"
         return self.name
 
     class Meta:
         indexes = [
             models.Index(fields=['vendor']),
+            models.Index(fields=['parent_category']),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=['vendor', 'name', 'parent_category'], name='unique_category_name_per_vendor')
         ]
 
 class ProductManager(models.Manager):
@@ -26,13 +33,15 @@ class ProductManager(models.Manager):
 class Product(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField()
+    brand = models.CharField(max_length=100, null=True, blank=True)
+    specification = models.JSONField(default=dict, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     original_price = models.DecimalField(max_digits=10, decimal_places=2)
     discount = models.IntegerField(
         null=True,
         validators=[MinValueValidator(0), MaxValueValidator(100)]
     )
-    image = models.ImageField(upload_to='images/')
+    image = models.ImageField(upload_to='product_images/', null=True, blank=True)
     rating = models.FloatField(default=0.0)
     code = models.CharField(max_length=50, null=True, blank=True)
     slug = models.SlugField(max_length=255, unique=True, null=True, blank=True)
@@ -65,14 +74,12 @@ class Product(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.code:
-            # Set temporary code if not set; updated after ID is assigned
             self.code = f"PROD-{self.id or 'temp'}"
         if not self.slug:
             self.slug = self.generate_unique_slug()
         if self.stock < 0:
             raise ValueError("Stock cannot be negative")
         super().save(*args, **kwargs)
-        # Update code and slug after ID is assigned if using temp values
         if 'temp' in (self.code or '') or 'temp' in (self.slug or ''):
             self.code = f"PROD-{self.id}"
             self.slug = self.generate_unique_slug()
@@ -98,6 +105,19 @@ class Product(models.Model):
                 name='unique_vendor_code',
                 condition=models.Q(code__isnull=False)
             ),
+        ]
+
+class ProductImage(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='additional_images')
+    image = models.ImageField(upload_to='product_images/')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Image for {self.product.name}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['product']),
         ]
 
 class Promotion(models.Model):

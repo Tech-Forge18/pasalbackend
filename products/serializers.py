@@ -3,13 +3,27 @@ from rest_framework import serializers
 from rest_framework.pagination import PageNumberPagination
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils.text import slugify
-from .models import Product, Category, Promotion
+from .models import Product, Category, Promotion, ProductImage
 from account.models import User
 
 class CategorySerializer(serializers.ModelSerializer):
+    parent_category = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), required=False, allow_null=True
+    )
+    subcategories = serializers.SerializerMethodField()
+
+    def get_subcategories(self, obj):
+        subcategories = obj.subcategories.all()
+        return CategorySerializer(subcategories, many=True, context=self.context).data
+
     class Meta:
         model = Category
-        fields = ['id', 'name', 'image', 'vendor']
+        fields = ['id', 'name', 'image', 'vendor', 'parent_category', 'subcategories']
+
+class ProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductImage
+        fields = ['id', 'image', 'created_at']
 
 class ProductSerializer(serializers.ModelSerializer):
     is_new_arrival = serializers.ReadOnlyField()
@@ -20,14 +34,17 @@ class ProductSerializer(serializers.ModelSerializer):
     vendor = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(role='vendor'), required=False
     )
+    additional_images = ProductImageSerializer(many=True, read_only=True)
+    brand = serializers.CharField(required=False, allow_blank=True)
+    specification = serializers.JSONField(default=dict)
 
     class Meta:
         model = Product
         fields = [
-            'id', 'name', 'description', 'price', 'original_price', 'discount', 'image',
-            'rating', 'code', 'slug', 'sold_count', 'category', 'category_id', 'color',
-            'sizes', 'is_exclusive_deal', 'deal_end_time', 'is_trending', 'created_at',
-            'vendor', 'is_new_arrival', 'stock', 'stock_threshold'
+            'id', 'name', 'description', 'brand', 'specification', 'price', 'original_price',
+            'discount', 'image', 'rating', 'code', 'slug', 'sold_count', 'category',
+            'category_id', 'color', 'sizes', 'is_exclusive_deal', 'deal_end_time', 'is_trending',
+            'created_at', 'vendor', 'is_new_arrival', 'stock', 'stock_threshold', 'additional_images'
         ]
         read_only_fields = ['id', 'sold_count', 'created_at', 'rating', 'is_new_arrival']
 
@@ -46,7 +63,7 @@ class ProductSerializer(serializers.ModelSerializer):
         instance = self.instance
         if instance and instance.code == value:
             return value
-        if Product.objects.filter(vendor=vendor, code=value).exists():
+        if value and Product.objects.filter(vendor=vendor, code=value).exists():
             raise serializers.ValidationError("This code is already in use for your products")
         return value
 
