@@ -51,7 +51,9 @@ class OrderViewSet(viewsets.ModelViewSet):
                     )
                 order.total_amount = total_amount
                 order.save()
-                CartItem.objects.filter(user=request.user).delete()
+                # Now delete only the cart items that were added to the order
+                ordered_product_ids = [item_data['product'].id for item_data in order_items_data]
+                CartItem.objects.filter(user=request.user, product_id__in=ordered_product_ids).delete()
                 response_data = OrderSerializer(order, context={'request': request}).data
                 logger.info(f"Order {order.id} created by {request.user.username} with status 'to_pay'")
                 sentry_sdk.capture_message(

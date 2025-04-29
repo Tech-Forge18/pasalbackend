@@ -40,6 +40,6 @@ class ReviewSerializer(serializers.ModelSerializer):
             user=user,
             order_items__product=product,
             status__in=['processing', 'shipped', 'delivered']
-        ).exists():
+        ).distinct().exists():
             raise serializers.ValidationError("You can only review products you've ordered.")
         return data

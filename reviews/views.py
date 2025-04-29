@@ -16,7 +16,10 @@ class CustomerReviewViewSet(viewsets.ModelViewSet):
     permission_classes = [IsCustomer]
 
     def get_queryset(self):
-        return Review.objects.filter(user=self.request.user)
+        product_id = self.request.query_params.get('product_id')
+        if product_id:
+            return Review.objects.filter(product_id=product_id)
+        return Review.objects.none()  # Return an empty queryset
 
     def perform_create(self, serializer):
         review = serializer.save(user=self.request.user)
