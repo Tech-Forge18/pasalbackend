@@ -26,7 +26,18 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Order.objects.filter(user=self.request.user).select_related('user', 'shipping_address').prefetch_related('order_items__product')
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
 
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True, context={'request': request})
+        return Response(serializer.data)
+        
     def create(self, request, *args, **kwargs):
         with transaction.atomic():
             with sentry_sdk.start_transaction(op="order.create", name="Create Order"):
