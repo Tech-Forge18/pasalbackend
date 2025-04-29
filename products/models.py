@@ -6,6 +6,8 @@ from django.utils.text import slugify
 from account.models import User
 from django.db.models import F
 
+
+
 class Category(models.Model):
     name = models.CharField(max_length=100)
     image = models.ImageField(upload_to='category_images/', null=True, blank=True)
@@ -47,8 +49,8 @@ class Product(models.Model):
     slug = models.SlugField(max_length=255, unique=True, null=True, blank=True)
     sold_count = models.IntegerField(default=0)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
-    color = models.JSONField(default=list)
-    sizes = models.JSONField(default=list)
+    color = models.JSONField(null=True, blank=True)
+    sizes = models.JSONField(null=True, blank=True)
     is_exclusive_deal = models.BooleanField(default=False)
     deal_end_time = models.DateTimeField(null=True, blank=True)
     is_trending = models.BooleanField(default=False)
@@ -126,16 +128,27 @@ class Promotion(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(100)]
     )
     vendor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='promotions')
+    products = models.ManyToManyField('Product', related_name='promotions') 
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.code} ({self.discount_percent}%) by {self.vendor.username}"
-
+    @property
     def is_active(self):
         now = timezone.now()
         return self.start_date <= now <= self.end_date
+    
+    def clean(self):
+        # Ensure all promotion products belong to the same vendor
+        for product in self.products.all():
+            if product.vendor != self.vendor:
+                raise ValidationError(f"Product '{product.name}' does not belong to vendor '{self.vendor.username}'.")
+
+        # Ensure start date is before end date
+        if self.start_date > self.end_date:
+            raise ValidationError("Start date must be before end date.")
 
     class Meta:
         indexes = [

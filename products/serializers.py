@@ -81,13 +81,20 @@ class ProductSerializer(serializers.ModelSerializer):
 class PromotionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Promotion
-        fields = ['id', 'code', 'discount_percent', 'vendor', 'start_date', 'end_date', 'created_at']
+        fields = ['id', 'code', 'discount_percent', 'vendor','products', 'start_date', 'end_date', 'created_at']
         read_only_fields = ['vendor', 'created_at']
 
     def validate_discount_percent(self, value):
         if not (0 <= value <= 100):
             raise serializers.ValidationError("Discount percent must be between 0 and 100")
         return value
+    
+    def validate_products(self, products):
+        vendor = self.context['request'].user
+        for product in products:
+            if product.vendor != vendor:
+                raise serializers.ValidationError(f"Product '{product.name}' is not owned by you.")
+        return products
 
 class ProductPagination(PageNumberPagination):
     page_size = 20

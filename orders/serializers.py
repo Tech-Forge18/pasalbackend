@@ -5,12 +5,15 @@ from .models import Order, ShippingAddress, OrderItem
 from .constants import STATUS_CHOICES
 from products.models import Product
 from products.serializers import ProductSerializer
+from products.models import Promotion  # Assuming you have a Promotion model
+
 
 class ShippingAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShippingAddress
         fields = ['id', 'address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country', 'is_default']
         read_only_fields = ['user']
+
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
@@ -49,15 +52,17 @@ class OrderItemSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(f"Invalid size: {selected_size}")
         return data
 
+
 class OrderSerializer(serializers.ModelSerializer):
     order_items = OrderItemSerializer(many=True)  # Renamed from cart_items
     shipping_address = serializers.PrimaryKeyRelatedField(
         queryset=ShippingAddress.objects.all(), allow_null=True
     )
+    promotion_code = serializers.CharField(write_only=True, required=False)
 
     class Meta:
         model = Order
-        fields = ['id', 'user', 'shipping_address', 'total_amount', 'status', 'created_at', 'order_items']
+        fields = ['id', 'user', 'shipping_address', 'total_amount', 'status', 'created_at', 'order_items', 'promotion_code']
         read_only_fields = ['user', 'total_amount', 'status', 'created_at']
 
     def validate(self, data):
@@ -71,6 +76,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         order_items_data = validated_data.pop('order_items')
+        promotion_code = validated_data.get('promotion_code')
         order = Order.objects.create(
             user=self.context['request'].user,
             shipping_address=validated_data.get('shipping_address'),
@@ -89,9 +95,25 @@ class OrderSerializer(serializers.ModelSerializer):
                 selected_color=item_data.get('selected_color'),
                 selected_size=item_data.get('selected_size')
             )
+
+        # Check if promotion code is provided and valid
+        if promotion_code:
+            try:
+                # Check if the promotion code is valid for the user
+                promotion = Promotion.objects.get(code=promotion_code, vendor=self.context['request'].user)
+                if promotion.is_active():
+                    # Apply promotion if it belongs to the correct vendor and is active
+                    discount = total_amount * (promotion.discount_percent / 100)
+                    total_amount -= discount
+                else:
+                    raise serializers.ValidationError("Promotion code is not active or invalid.")
+            except Promotion.DoesNotExist:
+                raise serializers.ValidationError("Invalid promotion code.")
+
         order.total_amount = total_amount
         order.save()
         return order
+
 
 class OrderPagination(PageNumberPagination):
     page_size = 10
