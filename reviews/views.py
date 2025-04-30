@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from .models import Review
 from .serializers import ReviewSerializer, ReviewReplySerializer
 from account.permissions import IsCustomer, IsApprovedVendor
+from rest_framework.permissions import AllowAny
 from utils.mail import send_mailersend_email
 import logging
 
@@ -13,7 +14,11 @@ logger = logging.getLogger('gurkha_pasal')
 class CustomerReviewViewSet(viewsets.ModelViewSet):
     """ViewSet for customers to create and view their own reviews."""
     serializer_class = ReviewSerializer
-    permission_classes = [IsCustomer]
+    
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [AllowAny()]  # Anyone can view reviews
+        return [IsCustomer()]  # Only customers can create reviews
 
     def get_queryset(self):
         product_id = self.request.query_params.get('product_id')
