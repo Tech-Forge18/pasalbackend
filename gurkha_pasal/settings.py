@@ -119,32 +119,44 @@ MAILERSEND_API_KEY = 'mlsn.9ea3d3139ce7b4110afa82c56d7302bca8f5541767af6bf9e791c
 MAILERSEND_DOMAIN = 'test-68zxl27ryxk4j905.mlsender.net'  # Your test domain
 MAILERSEND_FROM_EMAIL = f'Gurkha Pasal <gurkha@{MAILERSEND_DOMAIN}>'
 
-# REST Framework Settings
+# Django REST Framework
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
+    'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-        # Remove 'rest_framework.authentication.TokenAuthentication' if switching fully
-        'rest_framework.authentication.SessionAuthentication',  # Keep for admin interface
-    ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        # 'rest_framework.permissions.IsAuthenticated',  # Optional
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.ScopedRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'user': '10/min',  # This defines the throttle rate for all users globally
-        'anon': '5/min',   # This defines the throttle rate for anonymous users
+        'anon': '5/minute',
+        'user': '100/day',
+        'login': '3/minute',
+        'register': '2/minute',
+        'password_reset': '3/hour',
     },
 }
 
-# JWT Settings (optional customization)
-
+# Simple JWT
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),  # Short-lived access token
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),     # Longer-lived refresh token
-    'ROTATE_REFRESH_TOKENS': True,                   # New refresh token on refresh
-    'BLACKLIST_AFTER_ROTATION': True,                # Blacklist old refresh tokens
-    'AUTH_HEADER_TYPES': ('Bearer',),                # Header: Authorization: Bearer <token>
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
 }
 
+# Cache Configuration
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',

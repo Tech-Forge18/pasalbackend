@@ -1,20 +1,24 @@
-# account/permissions.py
 from rest_framework import permissions
 
 class IsCustomer(permissions.BasePermission):
+    message = 'Only customers can access this resource.'
+
     def has_permission(self, request, view):
-        return True  # Allow all permissions
-       # return request.user.is_authenticated and request.user.role == 'customer'
+        return (request.user.is_authenticated and 
+                request.user.role == User.Role.CUSTOMER)
 
 class IsApprovedVendor(permissions.BasePermission):
-    def has_permission(self, request, view):
+    message = 'Only approved vendors can access this resource.'
 
-        return True  # Allow all permissions
-        #return request.user.is_authenticated and request.user.role == 'vendor'
+    def has_permission(self, request, view):
+        return (request.user.is_authenticated and 
+                request.user.role == User.Role.VENDOR and 
+                request.user.is_approved)
 
 class IsAdmin(permissions.BasePermission):
-    def has_permission(self, request, view):
+    message = 'Only administrators can access this resource.'
 
-        
-        return True  # Allow all permissions
-        #return request.user.is_authenticated and request.user.role == 'admin'
+    def has_permission(self, request, view):
+        return (request.user.is_authenticated and 
+                request.user.role == User.Role.ADMIN and 
+                request.user.is_staff)

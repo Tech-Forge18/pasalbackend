@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from account.views import AuthView, PasswordResetView, UserView, AdminView, LogoutView
 from products.views import ProductViewSet, PromotionViewSet, CategoryViewSet
 from sliders.views import SliderViewSet
 from cart.views import CartItemViewSet
@@ -50,15 +51,17 @@ router.register(r'auth', UserViewSet, basename='auth')
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include((router.urls, 'api'), namespace='api')),
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),  # Get access/refresh tokens
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    
+    path('auth/<str:action>/', AuthView.as_view(), name='auth-action'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
+    path('password-reset/', PasswordResetView.as_view(), name='password-reset'),
+    path('me/', UserView.as_view(), name='current-user'),
+    path('admin/users/', AdminView.as_view(), name='admin-users'),
+    path('logout/', LogoutView.as_view(), name='logout'),
+   
 ]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 
-    ##Invoke-WebRequest -Method POST -Uri "http://127.0.0.1:8000/api/token/" -Headers @{ "Content-Type" = "application/json" } -Body '{"username": "rupesh", "password": "hello@123#"}'
-
-    #mlsn.9ea3d3139ce7b4110afa82c56d7302bca8f5541767af6bf9e791cb247710bc49
+    
