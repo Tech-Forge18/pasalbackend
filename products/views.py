@@ -175,10 +175,10 @@ class CategoryViewSet(viewsets.ModelViewSet):
             return Category.objects.filter(vendor=self.request.user).select_related('vendor', 'parent_category').prefetch_related('subcategories')
         return Category.objects.all().select_related('vendor', 'parent_category').prefetch_related('subcategories')
 
-    #def perform_create(self, serializer):
-       # serializer.save(vendor=self.request.user)
-        #logger.info(f"Category {serializer.instance.name} created by {self.request.user.username}")
+    def perform_create(self, serializer):
+        serializer.save(vendor=self.request.user)
+        logger.info(f"Category {serializer.instance.name} created by {self.request.user.username}")
 
-    #def perform_update(self, serializer):
-       # serializer.save()
-        #logger.info(f"Category {serializer.instance.name} updated by {self.request.user.username}")
+    def perform_update(self, serializer):
+        serializer.save()
+        logger.info(f"Category {serializer.instance.name} updated by {self.request.user.username}")

@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from products.views import ProductViewSet, PromotionViewSet
+from products.views import ProductViewSet, PromotionViewSet, CategoryViewSet
 from sliders.views import SliderViewSet
 from cart.views import CartItemViewSet
 from orders.views import OrderViewSet
@@ -31,6 +31,7 @@ from profiles.views import ProfileViewSet, VendorProfileViewSet
 
 router = DefaultRouter()
 router.register(r'products', ProductViewSet, basename='product')
+router.register(r'categories', CategoryViewSet, basename='category')
 router.register(r'promotions', PromotionViewSet, basename='promotion')
 router.register(r'cart', CartItemViewSet, basename='cart_item')
 router.register(r'orders', OrderViewSet, basename='order')
