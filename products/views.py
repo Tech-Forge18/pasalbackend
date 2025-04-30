@@ -52,7 +52,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         cache.delete("product_list")
         logger.info(f"Product {serializer.instance.name} updated by {self.request.user.username}")
 
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    @action(detail=True, methods=['get','post'], permission_classes=[permissions.IsAuthenticated])
     def add_image(self, request, pk=None):
         product = self.get_object()
         if product.vendor != request.user:
