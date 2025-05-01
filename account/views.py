@@ -153,3 +153,52 @@ class LogoutView(APIView):
                 {'error': str(e)}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+class AdminDashboardView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        # Retrieve all users and filter vendors who are pending approval
+        vendors_pending_approval = User.objects.filter(role=User.Role.VENDOR, is_approved=False)
+        vendors_approved = User.objects.filter(role=User.Role.VENDOR, is_approved=True)
+
+        # Serialize data for frontend use
+        pending_vendors_data = UserSerializer(vendors_pending_approval, many=True)
+        approved_vendors_data = UserSerializer(vendors_approved, many=True)
+
+        return Response({
+            'pending_vendors': pending_vendors_data.data,
+            'approved_vendors': approved_vendors_data.data
+        })
+
+    def post(self, request):
+        # Handle vendor approval (e.g., toggle is_approved status)
+        vendor_id = request.data.get('vendor_id')
+        is_approved = request.data.get('is_approved')
+
+        if not vendor_id or is_approved is None:
+            return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            vendor = User.objects.get(id=vendor_id, role=User.Role.VENDOR)
+        except User.DoesNotExist:
+            return Response({'error': 'Vendor not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        vendor.is_approved = is_approved
+        vendor.save()
+
+        return Response({'message': 'Vendor approval status updated successfully'})
+
+class VendorDashboardView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Check if the user is a vendor and approved
+        if request.user.role == User.Role.VENDOR and not request.user.is_approved:
+            return Response(
+                {'error': 'Your vendor account is pending approval.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # If the vendor is approved, show dashboard details
+        return Response({'message': 'Welcome to the Vendor Dashboard'})

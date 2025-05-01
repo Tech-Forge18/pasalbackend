@@ -34,8 +34,16 @@ class RegisterSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
+        email = validated_data['email']
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError({'email': 'This email is already in use.'})
         validated_data.pop('confirm_password')
-        return User.objects.create_user(**validated_data)
+        role = validated_data.get('role', User.Role.CUSTOMER)  # Default to customer if not provided
+        user = User.objects.create_user(**validated_data)
+        if role == User.Role.VENDOR:
+            user.is_approved = False  # Set vendor to unapproved by default
+            user.save()
+        return user
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -47,9 +55,9 @@ class LoginSerializer(serializers.Serializer):
     def validate(self, attrs):
         user = authenticate(email=attrs['email'], password=attrs['password'])
         if not user:
-            raise serializers.ValidationError('Invalid credentials')
+            raise serializers.ValidationError({'detail': 'Invalid credentials.'})
         if user.role == User.Role.VENDOR and not user.is_approved:
-            raise serializers.ValidationError('Vendor account pending approval')
+            raise serializers.ValidationError({'detail': 'Your vendor account is pending approval.'})
         return user
 
 class TokenSerializer(serializers.Serializer):
@@ -70,6 +78,9 @@ class PasswordResetSerializer(serializers.Serializer):
     )
 
     def validate(self, data):
-        if 'new_password' in data and data['new_password'] != data.get('confirm_password', ''):
-            raise serializers.ValidationError({'confirm_password': 'Passwords must match.'})
+        if 'otp' in data and not data['otp']:
+            raise serializers.ValidationError({'otp': 'OTP is required for password reset.'})
+        if 'new_password' in data:
+            if 'confirm_password' not in data or data['new_password'] != data['confirm_password']:
+                raise serializers.ValidationError({'confirm_password': 'Passwords must match.'})
         return data
