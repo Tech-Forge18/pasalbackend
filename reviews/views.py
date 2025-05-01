@@ -1,24 +1,27 @@
-# reviews/views.py
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
+from django.conf import settings
 from .models import Review
 from .serializers import ReviewSerializer, ReviewReplySerializer
 from account.permissions import IsCustomer, IsApprovedVendor
-from rest_framework.permissions import AllowAny
 from utils.mail import send_mailersend_email
 import logging
 
 logger = logging.getLogger('gurkha_pasal')
 
+
 class CustomerReviewViewSet(viewsets.ModelViewSet):
     """ViewSet for customers to create and view their own reviews."""
     serializer_class = ReviewSerializer
-    
+
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
-            return [AllowAny()]  # Anyone can view reviews
-        return [IsCustomer()]  # Only customers can create reviews
+            return [AllowAny()]
+        if settings.DEBUG:
+            return [AllowAny()]  
+        return [IsCustomer()]  
 
     def get_queryset(self):
         product_id = self.request.query_params.get('product_id')
@@ -28,6 +31,7 @@ class CustomerReviewViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         review = serializer.save(user=self.request.user)
+
         # Send email to vendor asynchronously
         vendor = review.product.vendor
         if vendor.email:
@@ -50,30 +54,36 @@ Gurkha Pasal Team
             except Exception as e:
                 logger.error(f"Failed to send review email to vendor {vendor.username}: {str(e)}")
 
+
 class VendorReviewViewSet(viewsets.ModelViewSet):
     """ViewSet for vendors to view and reply to reviews on their products."""
     serializer_class = ReviewSerializer
-    permission_classes = [IsApprovedVendor]
+
+    def get_permissions(self):
+        if settings.DEBUG:
+            return [AllowAny()]
+        return [IsApprovedVendor()]
 
     def get_queryset(self):
-        # Show reviews for products owned by the vendor
         return Review.objects.filter(product__vendor=self.request.user)
 
     @action(detail=True, methods=['post'])
     def reply(self, request, pk=None):
         """Vendor replies to a review on their product (one reply per review)."""
         review = self.get_object()
+
         if review.product.vendor != request.user:
             return Response(
                 {"detail": "You can only reply to reviews on your products"},
                 status=status.HTTP_403_FORBIDDEN
             )
-        # Check if vendor has already replied
+
         if review.replies.filter(user=request.user).exists():
             return Response(
                 {"detail": "You can only reply once per review"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
         serializer = ReviewReplySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         reply = serializer.save(user=request.user, review=review)
