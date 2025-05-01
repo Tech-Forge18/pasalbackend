@@ -158,6 +158,8 @@ class PromotionViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        if settings.DEBUG:
+            return Promotion.objects.all()
         if self.request.user.role == 'vendor':
             return Promotion.objects.filter(vendor=self.request.user)
         return Promotion.objects.none()
