@@ -24,7 +24,6 @@ from sliders.views import SliderViewSet
 from cart.views import CartItemViewSet
 from orders.views import OrderViewSet
 from reviews.views import CustomerReviewViewSet, VendorReviewViewSet
-from account.views import CustomerViewSet, VendorViewSet,AdminViewSet, UserViewSet # New import
 from django.conf import settings
 from django.conf.urls.static import static
 from chat.views import AdminChatViewSet, RegularChatViewSet
@@ -38,15 +37,14 @@ router.register(r'cart', CartItemViewSet, basename='cart_item')
 router.register(r'orders', OrderViewSet, basename='order')
 router.register(r'reviews', CustomerReviewViewSet, basename='customer-review')
 router.register(r'vendor-reviews', VendorReviewViewSet, basename='vendor-review')
-router.register(r'customers', CustomerViewSet, basename='customer')
+
 router.register(r'profiles', ProfileViewSet, basename='profile')
 router.register(r'vendor-profiles', VendorProfileViewSet, basename='vendor-profile')
-router.register(r'vendors', VendorViewSet, basename='vendor')
-router.register(r'admins', AdminViewSet, basename='admin')  # New endpoint
+
 router.register(r'sliders', SliderViewSet, basename='slider')
 router.register(r'admin-chat', AdminChatViewSet, basename='admin-chat')
 router.register(r'regular-chat', RegularChatViewSet, basename='regular-chat')
-router.register(r'auth', UserViewSet, basename='auth')
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
