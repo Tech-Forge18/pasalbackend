@@ -5,8 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Sum
 from django.core.cache import cache
-from rest_framework.permissions import AllowAny
-from django.conf import settings  # Import settings to check DEBUG
+from django.conf import settings
 from .models import Product, Promotion, ProductImage, Category
 from .serializers import ProductSerializer, PromotionSerializer, CategorySerializer, ProductPagination
 from orders.models import OrderItem
@@ -18,6 +17,7 @@ logger = logging.getLogger('gurkha_pasal')
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.select_related('category', 'vendor').prefetch_related('additional_images')
     serializer_class = ProductSerializer
+    permission_classes = [permissions.AllowAny]
     pagination_class = ProductPagination
 
     def get_permissions(self):
@@ -59,7 +59,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         cache.delete("product_list")
         logger.info(f"Product {serializer.instance.name} updated by {self.request.user.username}")
 
-    @action(detail=True, methods=['get', 'post'], permission_classes=[permissions.IsAuthenticated])
+    @action(detail=True, methods=['get','post'], permission_classes=[permissions.IsAuthenticated])
     def add_image(self, request, pk=None):
         product = self.get_object()
         if product.vendor != request.user:
@@ -153,17 +153,26 @@ class ProductViewSet(viewsets.ModelViewSet):
             logger.info(f"Recommendations cached for {request.user.username}")
         return Response(cached_recommendations)
 
+class PromotionViewSet(viewsets.ModelViewSet):
+    serializer_class = PromotionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.role == 'vendor':
+            return Promotion.objects.filter(vendor=self.request.user)
+        return Promotion.objects.none()
+
+    def perform_create(self, serializer):
+        if self.request.user.role != 'vendor':
+            raise serializer.ValidationError("Only vendors can create promotions.")
+        serializer.save(vendor=self.request.user)
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.select_related('vendor', 'parent_category').prefetch_related('subcategories')
     serializer_class = CategorySerializer
-    permission_classes = [permissions.AllowAny]  # Default permission
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_permissions(self):
-        if settings.DEBUG:
-            # Allow any permission during development when DEBUG is True
-            return [permissions.AllowAny()]
-
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsApprovedVendor()]
         return super().get_permissions()
