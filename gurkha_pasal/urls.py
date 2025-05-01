@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from account.views import AuthView, PasswordResetView, UserView, AdminView, LogoutView, AdminDashboardView, VendorDashboardView
+from account.views import RegisterView, VerifyOtpView, ResendOtpView, LoginView, ForgotPasswordView, ResetPasswordView, ResendPasswordOtpView, UserView, AdminView, LogoutView, AdminDashboardView, VendorDashboardView
 from products.views import ProductViewSet, PromotionViewSet, CategoryViewSet
 from sliders.views import SliderViewSet
 from cart.views import CartItemViewSet
@@ -49,15 +49,18 @@ router.register(r'regular-chat', RegularChatViewSet, basename='regular-chat')
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include((router.urls, 'api'), namespace='api')),
-    path('auth/<str:action>/', AuthView.as_view(), name='auth-action'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
-    path('password-reset/', PasswordResetView.as_view(), name='password-reset'),
-    path('me/', UserView.as_view(), name='current-user'),
-    path('admin/users/', AdminView.as_view(), name='admin-users'),
+    path('register/', RegisterView.as_view(), name='register'),
+    path('verify-otp/', VerifyOtpView.as_view(), name='verify-otp'),
+    path('resend-otp/', ResendOtpView.as_view(), name='resend-otp'),
+    path('login/', LoginView.as_view(), name='login'),
+    path('forgot-password/', ForgotPasswordView.as_view(), name='forgot-password'),
+    path('reset-password/', ResetPasswordView.as_view(), name='reset-password'),
+    path('resend-password-otp/', ResendPasswordOtpView.as_view(), name='resend-password-otp'),
+    path('user/', UserView.as_view(), name='user'),
+    path('admin/', AdminView.as_view(), name='admin'),
     path('logout/', LogoutView.as_view(), name='logout'),
-    path('admin/dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),  # Admin dashboard to manage vendors
-    path('vendor/dashboard/', VendorDashboardView.as_view(), name='vendor-dashboard'),  # Vendor dashboard for approved vendors
-   
+    path('admin-dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),
+    path('vendor-dashboard/', VendorDashboardView.as_view(), name='vendor-dashboard'),
 ]
 
 if settings.DEBUG:
