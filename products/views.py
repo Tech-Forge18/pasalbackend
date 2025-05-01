@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Sum
 from django.core.cache import cache
+from rest_framework.permissions import AllowAny
 from django.conf import settings  # Import settings to check DEBUG
 from .models import Product, Promotion, ProductImage, Category
 from .serializers import ProductSerializer, PromotionSerializer, CategorySerializer, ProductPagination
