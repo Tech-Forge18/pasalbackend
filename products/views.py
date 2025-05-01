@@ -173,9 +173,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_permissions(self):
+        if settings.DEBUG:
+           return []  # No permission checks in DEBUG mode
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsApprovedVendor()]
-        return super().get_permissions()
+           return [IsApprovedVendor()]
+       return super().get_permissions()
 
     def get_queryset(self):
         if self.request.user.role == 'vendor':
