@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from account.views import AuthView, PasswordResetView, UserView, AdminView, LogoutView
+from account.views import AuthView, PasswordResetView, UserView, AdminView, LogoutView, AdminDashboardView, VendorDashboardView
 from products.views import ProductViewSet, PromotionViewSet, CategoryViewSet
 from sliders.views import SliderViewSet
 from cart.views import CartItemViewSet
@@ -55,6 +55,8 @@ urlpatterns = [
     path('me/', UserView.as_view(), name='current-user'),
     path('admin/users/', AdminView.as_view(), name='admin-users'),
     path('logout/', LogoutView.as_view(), name='logout'),
+    path('admin/dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),  # Admin dashboard to manage vendors
+    path('vendor/dashboard/', VendorDashboardView.as_view(), name='vendor-dashboard'),  # Vendor dashboard for approved vendors
    
 ]
 
