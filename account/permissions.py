@@ -7,13 +7,12 @@ class IsCustomer(permissions.BasePermission):
         return (request.user.is_authenticated and 
                 request.user.role == User.Role.CUSTOMER)
 
-class IsApprovedVendor(permissions.BasePermission):
-    message = 'Only approved vendors can access this resource.'
+class IsVendor(permissions.BasePermission):
+    message = 'Only vendors can access this resource.'
 
     def has_permission(self, request, view):
         return (request.user.is_authenticated and 
-                request.user.role == User.Role.VENDOR and 
-                request.user.is_approved)
+                request.user.role == User.Role.VENDOR)
 
 class IsAdmin(permissions.BasePermission):
     message = 'Only administrators can access this resource.'

@@ -5,7 +5,7 @@ from django.utils.dateparse import parse_datetime
 from django.db import models
 from .models import ChatMessage
 from .serializers import AdminChatSerializer, RegularChatSerializer
-from account.permissions import IsApprovedVendor, IsCustomer, IsAdmin
+from account.permissions import IsVendor, IsCustomer, IsAdmin
 from rest_framework.pagination import PageNumberPagination
 
 class ChatMessagePagination(PageNumberPagination):
@@ -16,7 +16,7 @@ class ChatMessagePagination(PageNumberPagination):
 class AdminChatViewSet(viewsets.ModelViewSet):
     """ViewSet for vendor-to-admin chat."""
     serializer_class = AdminChatSerializer
-    permission_classes = [permissions.IsAuthenticated, IsApprovedVendor | IsAdmin]
+    permission_classes = [permissions.IsAuthenticated, IsVendor | IsAdmin]
     pagination_class = ChatMessagePagination
 
     def get_queryset(self):
@@ -58,7 +58,7 @@ class AdminChatViewSet(viewsets.ModelViewSet):
 class RegularChatViewSet(viewsets.ModelViewSet):
     """ViewSet for vendor-to-customer chat."""
     serializer_class = RegularChatSerializer
-    permission_classes = [permissions.IsAuthenticated, IsApprovedVendor | IsCustomer]
+    permission_classes = [permissions.IsAuthenticated, IsVendor | IsCustomer]
     pagination_class = ChatMessagePagination
 
     def get_queryset(self):

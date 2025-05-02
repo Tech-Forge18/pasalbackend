@@ -5,7 +5,7 @@ from rest_framework.permissions import AllowAny
 from django.conf import settings
 from .models import Review
 from .serializers import ReviewSerializer, ReviewReplySerializer
-from account.permissions import IsCustomer, IsApprovedVendor
+from account.permissions import IsCustomer, IsVendor
 from utils.mail import send_mailersend_email
 import logging
 
@@ -62,7 +62,7 @@ class VendorReviewViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if settings.DEBUG:
             return [AllowAny()]
-        return [IsApprovedVendor()]
+        return [IsVendor()]
 
     def get_queryset(self):
         return Review.objects.filter(product__vendor=self.request.user)

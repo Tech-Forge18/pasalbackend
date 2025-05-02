@@ -129,17 +129,19 @@ class Promotion(models.Model):
     )
     vendor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='promotions')
     products = models.ManyToManyField('Product', related_name='promotions') 
+    is_active = models.BooleanField(default=False)  # Store the active status in the DB
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.code} ({self.discount_percent}%) by {self.vendor.username}"
-    @property
-    def is_active(self):
-        now = timezone.now()
-        return self.start_date <= now <= self.end_date
-    
+
+    def save(self, *args, **kwargs):
+        # Calculate and update the active status before saving
+        self.is_active = self.start_date <= timezone.now() <= self.end_date
+        super().save(*args, **kwargs)
+
     def clean(self):
         # Ensure all promotion products belong to the same vendor
         for product in self.products.all():

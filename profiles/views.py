@@ -13,7 +13,7 @@ from .models import Profile, VendorProfile
 from .serializers import ProfileSerializer, VendorProfileSerializer
 from products.models import Product
 from products.serializers import ProductSerializer
-from account.permissions import IsCustomer, IsApprovedVendor
+from account.permissions import IsCustomer, IsVendor
 from django.http import Http404
 from django.core.cache import cache
 
@@ -123,7 +123,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
 class VendorProfileViewSet(viewsets.ModelViewSet):
     """ViewSet for vendor profile actions."""
     serializer_class = VendorProfileSerializer
-    permission_classes = [IsApprovedVendor]
+    permission_classes = [IsVendor]
     queryset = VendorProfile.objects.all()
 
     def get_object(self):
@@ -145,7 +145,3 @@ class VendorProfileViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(profile).data)
         
 
-#"Created ProfileViewSet for customers with me, add_to_wishlist, and remove_from_wishlist.
-#Created VendorProfileViewSet for vendors with me.
-#Renamed profile action to me for consistency (e.g., /api/profiles/me/ instead of /api/customers/profile/).
-#Used IsCustomer and IsApprovedVendor permissions from account.permissions.
