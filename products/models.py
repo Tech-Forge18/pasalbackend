@@ -49,7 +49,7 @@ class Product(models.Model):
     slug = models.SlugField(max_length=255, unique=True, null=True, blank=True)
     sold_count = models.IntegerField(default=0)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
-    color = models.JSONField(null=True, blank=True)
+    colors = models.JSONField(null=True, blank=True)
     sizes = models.JSONField(null=True, blank=True)
     is_exclusive_deal = models.BooleanField(default=False)
     deal_end_time = models.DateTimeField(null=True, blank=True)
