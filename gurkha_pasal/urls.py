@@ -1,18 +1,19 @@
-
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
 
-
 # Import all views
 from account.views import (
-    RegisterView, VerifyOtpView, ResendOtpView,
-    LoginView, ForgotPasswordView, ResetPasswordView,
-    ResendPasswordOtpView, UserView, AdminView,
-    LogoutView, AdminDashboardView, VendorDashboardView
+    CustomerRegisterView,
+    VendorRegisterView,
+    AdminRegisterView,
+    LoginView,
+    VerifyOTPView,
+    PasswordResetRequestView,
+    PasswordResetConfirmView,
+    LogoutView
 )
 from products.views import ProductViewSet, PromotionViewSet, CategoryViewSet
 from sliders.views import SliderViewSet
@@ -22,64 +23,62 @@ from reviews.views import CustomerReviewViewSet, VendorReviewViewSet
 from chat.views import AdminChatViewSet, RegularChatViewSet
 from profiles.views import ProfileViewSet, VendorProfileViewSet
 
-# Initialize the main router
+# Initialize the DefaultRouter
 router = DefaultRouter()
 
-
-# Product-related ViewSets
+# Product-related endpoints
 router.register(r'products', ProductViewSet, basename='products')
 router.register(r'promotions', PromotionViewSet, basename='promotions')
 router.register(r'categories', CategoryViewSet, basename='categories')
 
-# Other app ViewSets
+# Shopping cart endpoints
 router.register(r'cart', CartItemViewSet, basename='cart')
+
+# Order management endpoints
 router.register(r'orders', OrderViewSet, basename='orders')
+
+# Review endpoints
 router.register(r'reviews', CustomerReviewViewSet, basename='reviews')
 router.register(r'vendor-reviews', VendorReviewViewSet, basename='vendor-reviews')
+
+# Profile endpoints
 router.register(r'profiles', ProfileViewSet, basename='profiles')
 router.register(r'vendor-profiles', VendorProfileViewSet, basename='vendor-profiles')
+
+# Slider endpoints
 router.register(r'sliders', SliderViewSet, basename='sliders')
+
+# Chat endpoints
 router.register(r'admin-chat', AdminChatViewSet, basename='admin-chat')
 router.register(r'regular-chat', RegularChatViewSet, basename='regular-chat')
 
-
-auth_urls = [
-    path('register/', RegisterView.as_view(), name='register'),
-    path('verify-otp/', VerifyOtpView.as_view(), name='verify-otp'),
-    path('resend-otp/', ResendOtpView.as_view(), name='resend-otp'),
+# Authentication URL patterns (not using ViewSets)
+auth_urlpatterns = [
+    path('register/customer/', CustomerRegisterView.as_view(), name='customer-register'),
+    path('register/vendor/', VendorRegisterView.as_view(), name='vendor-register'),
+    path('register/admin/', AdminRegisterView.as_view(), name='admin-register'),
     path('login/', LoginView.as_view(), name='login'),
+    path('verify-otp/', VerifyOTPView.as_view(), name='verify-otp'),
+    path('password-reset/request/', PasswordResetRequestView.as_view(), name='password-reset-request'),
+    path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     path('logout/', LogoutView.as_view(), name='logout'),
-    path('forgot-password/', ForgotPasswordView.as_view(), name='forgot-password'),
-    path('reset-password/', ResetPasswordView.as_view(), name='reset-password'),
-    path('resend-password-otp/', ResendPasswordOtpView.as_view(), name='resend-password-otp'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
 ]
 
-
-dashboard_urls = [
-    path('admin-dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),
-    path('vendor-dashboard/', VendorDashboardView.as_view(), name='vendor-dashboard'),
-]
-
-# ======================
-# Main URL Patterns
-# ======================
+# Main URL patterns
 urlpatterns = [
-    
+    # Admin interface
     path('admin/', admin.site.urls),
     
     # API endpoints
     path('api/', include([
-       
-        path('auth/', include(auth_urls)),
+        # Authentication endpoints
+        path('auth/', include(auth_urlpatterns)),
         
-        
-        path('dashboards/', include(dashboard_urls)),
-        
+        # All other API endpoints from router
         path('', include(router.urls)),
     ])),
 ]
 
-# Serve media files in development
+# Serve media files during development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

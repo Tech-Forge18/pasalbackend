@@ -1,89 +1,79 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import User
+import random
+from django.core.mail import send_mail
+from django.conf import settings
+from django.utils import timezone
+from datetime import timedelta
+import jwt
 
-class UserSerializer(serializers.ModelSerializer):
+class UserRegistrationSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+    
     class Meta:
         model = User
-        fields = ['id', 'email', 'first_name', 'last_name', 'role', 'is_approved']
-        read_only_fields = ['id', 'is_approved']
-
-class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(
-        write_only=True,
-        min_length=8,
-        style={'input_type': 'password'}
-    )
-    confirm_password = serializers.CharField(
-        write_only=True,
-        style={'input_type': 'password'}
-    )
-
-    class Meta:
-        model = User
-        fields = ['email', 'password', 'confirm_password', 'first_name', 'last_name', 'role']
-        extra_kwargs = {
-            'password': {'write_only': True},
-            'confirm_password': {'write_only': True},
-        }
-
-    def validate(self, data):
-        if data['password'] != data['confirm_password']:
-            raise serializers.ValidationError({'confirm_password': 'Passwords must match.'})
-        role = data.get('role', User.Role.CUSTOMER)
-        if role not in User.Role.values:
-            raise serializers.ValidationError({'role': 'Invalid role.'})
-        return data
+        fields = ['username', 'email', 'password', 'phone_number']
 
     def create(self, validated_data):
-        email = validated_data['email']
-        if User.objects.filter(email=email).exists():
-            raise serializers.ValidationError({'email': 'This email is already in use.'})
-        validated_data.pop('confirm_password')
-        role = validated_data.get('role', User.Role.CUSTOMER)
-        user = User.objects.create_user(**validated_data)
-        if role == User.Role.VENDOR:
-            user.is_approved = False
-            user.save()
+        role = self.context.get('role', 'customer')
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            password=validated_data['password'],
+            phone_number=validated_data.get('phone_number'),
+            role=role
+        )
+        otp = user.generate_otp()
+        self.send_otp_email(user.email, otp)
         return user
 
-class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(
-        write_only=True,
-        style={'input_type': 'password'}
-    )
+    def send_otp_email(self, email, otp):
+        send_mail(
+            'Your OTP Code',
+            f'Your verification code is: {otp}',
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
 
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        user = authenticate(email=attrs['email'], password=attrs['password'])
+        credentials = {'password': attrs.get('password')}
+        user_input = attrs.get('username')
+        
+        if '@' in user_input:
+            credentials['email'] = user_input
+        else:
+            credentials['username'] = user_input
+        
+        user = authenticate(**credentials)
+        
         if not user:
-            raise serializers.ValidationError({'detail': 'Invalid credentials.'})
-        if user.role == User.Role.VENDOR and not user.is_approved:
-            raise serializers.ValidationError({'detail': 'Your vendor account is pending approval.'})
-        return user
+            raise serializers.ValidationError("Invalid credentials.")
+        
+        if not user.is_verified:
+            raise serializers.ValidationError("Account not verified. Please check your OTP.")
+        
+        refresh = self.get_token(user)
+        return {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+            'role': user.role,
+            'email': user.email
+        }
 
-class ForgotPasswordSerializer(serializers.Serializer):
+class VerifyOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    otp = serializers.CharField(max_length=6)
+
+class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
-    def validate_email(self, value):
-        if not User.objects.filter(email=value).exists():
-            raise serializers.ValidationError('No user found with this email.')
-        return value
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
 
-class ResetPasswordSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    otp = serializers.CharField()
-    new_password = serializers.CharField(
-        min_length=8,
-        style={'input_type': 'password'}
-    )
-    confirm_password = serializers.CharField(
-        style={'input_type': 'password'}
-    )
-
-    def validate(self, data):
-        if data['new_password'] != data['confirm_password']:
-            raise serializers.ValidationError({'confirm_password': 'Passwords must match.'})
-        if not User.objects.filter(email=data['email']).exists():
-            raise serializers.ValidationError({'email': 'No user found with this email.'})
-        return data
+class LogoutSerializer(serializers.Serializer):
+    refresh_token = serializers.CharField()

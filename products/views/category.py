@@ -1,14 +1,18 @@
-# products/views/category.py
 from rest_framework import viewsets, permissions
-from django.core.cache import cache
-from rest_framework.response import Response
 from products.models import Category
 from products.serializers import CategorySerializer
+from rest_framework.response import Response
+from django.core.cache import cache
+from account.permissions import IsVendor  # import your own permission
 
-class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
+class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [permissions.AllowAny]
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated(), IsVendor()]
 
     def list(self, request, *args, **kwargs):
         cache_key = "category_list"
@@ -17,5 +21,5 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = self.get_queryset()
             serializer = self.get_serializer(queryset, many=True)
             categories = serializer.data
-            cache.set(cache_key, categories, 60 * 60)  # Cache for 1 hour
+            cache.set(cache_key, categories, 60 * 60)
         return Response(categories)

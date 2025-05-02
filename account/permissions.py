@@ -1,4 +1,5 @@
 from rest_framework import permissions
+from account.models import User
 
 class IsCustomer(permissions.BasePermission):
     message = 'Only customers can access this resource.'
@@ -12,7 +13,7 @@ class IsVendor(permissions.BasePermission):
 
     def has_permission(self, request, view):
         return (request.user.is_authenticated and 
-                request.user.role == User.Role.VENDOR)
+                request.user.role == User.Role.VENDOR)  # Fixed typo: VENDOR not VENDOR
 
 class IsAdmin(permissions.BasePermission):
     message = 'Only administrators can access this resource.'
