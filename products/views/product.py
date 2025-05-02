@@ -1,6 +1,7 @@
 # products/views/product.py
 import logging
 from rest_framework.decorators import action
+from rest_framework.response import Response
 from rest_framework import viewsets, permissions
 from django.core.cache import cache
 from django.conf import settings
