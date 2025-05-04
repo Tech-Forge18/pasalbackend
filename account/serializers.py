@@ -1,3 +1,4 @@
+
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -6,8 +7,13 @@ import random
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
-from datetime import timedelta
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.validators import validate_email  # Import validate_email here
+
 import jwt
+import logging
+
+logger = logging.getLogger(__name__)
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -39,31 +45,50 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         )
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(required=True)
+
     def validate(self, attrs):
-        credentials = {'password': attrs.get('password')}
-        user_input = attrs.get('username')
-        
-        if '@' in user_input:
-            credentials['email'] = user_input
-        else:
-            credentials['username'] = user_input
-        
-        user = authenticate(**credentials)
-        
-        if not user:
-            raise serializers.ValidationError("Invalid credentials.")
-        
+        email = attrs.get('email')
+        password = attrs.get('password')
+
+        logger.debug(f"Login attempt with email: {email}")
+
+        # Check for missing email
+        if not email:
+            raise serializers.ValidationError({"email": "Email is required."})
+
+        # Validate email format
+        try:
+            validate_email(email)
+        except DjangoValidationError:
+            raise serializers.ValidationError({"email": "Enter a valid email address."})
+
+        # Check if user with the email exists
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            raise serializers.ValidationError({"email": "Email does not exist."})
+
+        # Check password
+        if not user.check_password(password):
+            raise serializers.ValidationError({"password": "Incorrect password."})
+
+        # Check if user is verified
         if not user.is_verified:
-            raise serializers.ValidationError("Account not verified. Please check your OTP.")
-        
+            raise serializers.ValidationError({
+                "non_field_errors": ["Account not verified. Please check your OTP."]
+            })
+
+        # Generate JWT tokens
         refresh = self.get_token(user)
+
         return {
             'refresh': str(refresh),
             'access': str(refresh.access_token),
             'role': user.role,
             'email': user.email
         }
-
 class VerifyOTPSerializer(serializers.Serializer):
     email = serializers.EmailField()
     otp = serializers.CharField(max_length=6)
